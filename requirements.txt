@@ -1,4 +1,5 @@
 streamlit
 tensorflow
-pillow
+opencv-python
+Pillow
 numpy
