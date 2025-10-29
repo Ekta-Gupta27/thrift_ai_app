@@ -1,40 +1,46 @@
 import streamlit as st
-import tensorflow as tf
 import numpy as np
-from PIL import Image
+from tensorflow.keras.models import load_model
+from tensorflow.keras.preprocessing import image
 
-# Load the trained model
-@st.cache_resource
-def load_model():
-    model = tf.keras.models.load_model("cloth_condition_model.h5")
-    return model
+# Load your trained model
+model = load_model("cloth_condition_model.h5")
+class_labels = ['T-shirt/top', 'Trouser', 'Pullover', 'Dress', 'Coat',
+                'Sandal', 'Shirt', 'Sneaker', 'Bag', 'Ankle boot']
 
-model = load_model()
+st.title("♻️ Smart Thrift Store AI Classifier")
 
-# App title and description
-st.title("♻️ Thrift Store AI Classifier")
-st.markdown("Upload a clothing image to predict its condition!")
-
-# File upload section
-uploaded_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
+uploaded_file = st.file_uploader("Upload an image of the clothing", type=["jpg", "png", "jpeg"])
 
 if uploaded_file is not None:
-    # Display the image
-    image = Image.open(uploaded_file).convert("L").resize((28, 28))  # same size as Fashion-MNIST
-    st.image(image, caption="Uploaded Image", use_column_width=True)
+    img = image.load_img(uploaded_file, target_size=(28, 28), color_mode='grayscale')
+    img_array = image.img_to_array(img) / 255.0
+    img_array = np.expand_dims(img_array, axis=0)
 
-    # Preprocess the image
-    img_array = np.array(image) / 255.0
-    img_array = img_array.reshape(1, 28, 28, 1)
+    pred = model.predict(img_array)
+    pred_class = class_labels[np.argmax(pred)]
 
-    # Make prediction
-    prediction = model.predict(img_array)
-    predicted_class = np.argmax(prediction)
+    st.image(uploaded_file, caption="Uploaded Image", use_column_width=True)
+    st.write(f"🧥 Predicted category: **{pred_class}**")
 
-    # Label map for Fashion-MNIST
-    labels = [
-        "T-shirt/top", "Trouser", "Pullover", "Dress", "Coat",
-        "Sandal", "Shirt", "Sneaker", "Bag", "Ankle boot"
-    ]
+    # --- User inputs for condition ---
+    age = st.number_input("How old is the cloth (in years)?", min_value=0, max_value=20)
+    torn = st.selectbox("Is it torn?", ["No", "Yes"])
+    faded = st.selectbox("Is it faded?", ["No", "Yes"])
+    branded = st.selectbox("Is it branded?", ["Yes", "No"])
 
-    st.success(f"Predicted Category: **{labels[predicted_class]}**")
+    # --- Rule-based decision ---
+    if torn == "Yes" or faded == "Yes" or age > 3:
+        decision = "♻️ Recyclable"
+    else:
+        decision = "🛍️ Sellable"
+
+    # --- Pricing logic (optional) ---
+    base_price = 500 if branded == "Yes" else 200
+    if decision == "Recyclable":
+        price = base_price * 0.4
+    else:
+        price = base_price
+
+    st.success(f"✅ Recommended Action: **{decision}**")
+    st.info(f"💰 Suggested Price: ₹{price:.2f}")
